@@ -6,6 +6,9 @@
 #include "GCLContext.h"
 #include "VulkanContext.in.h"
 
+#define VMA_IMPLEMENTATION
+#include "../vendor/vma.h"
+
 #include <memory>
 
 using namespace gcl;

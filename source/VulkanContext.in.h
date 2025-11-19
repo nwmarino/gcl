@@ -3,8 +3,8 @@
 //   All rights reserved.
 //
 
-#ifndef GCL_VULKAN_CONTEXT_H_
-#define GCL_VULKAN_CONTEXT_H_
+#ifndef GCL_VULKAN_CONTEXT_INTERNAL_H_
+#define GCL_VULKAN_CONTEXT_INTERNAL_H_
 
 #include <vulkan/vulkan.h>
 
@@ -69,4 +69,4 @@ public:
 
 } // namespace gcl
 
-#endif // GCL_VULKAN_CONTEXT_H_
+#endif // GCL_VULKAN_CONTEXT_INTERNAL_H_
