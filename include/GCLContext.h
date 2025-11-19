@@ -14,7 +14,10 @@ namespace gcl {
 
 class VulkanContext;
 
-class GCLContext {;
+class GCLContext {
+    friend class Buffer;
+    friend class Kernel;
+
     std::unique_ptr<VulkanContext> m_context;
 
 public:
@@ -25,7 +28,10 @@ public:
 
     ~GCLContext();
 
+    operator VkDevice() const;
     operator VmaAllocator() const;
+
+    VkDevice get_device() const;
 
     VmaAllocator get_allocator() const;
 };

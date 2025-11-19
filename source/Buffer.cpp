@@ -1,3 +1,8 @@
+//
+//   Copyright (c) 2025 Nicholas Marino
+//   All rights reserved.
+//
+
 #include "../include/Buffer.h"
 #include "VulkanContext.in.h"
 

@@ -4,12 +4,12 @@
 //
 
 #include "VulkanContext.in.h"
+#include <vulkan/vulkan_core.h>
 
 #define VMA_IMPLEMENTATION
 #include "../vendor/vma.h"
 
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <set>
 #include <optional>
@@ -22,6 +22,10 @@ std::vector<const char*> EXTENSIONS = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif // USE_VALIDATION_LAYERS
 };
+
+#ifdef USE_VALIDATION_LAYERS
+
+#include <cstring>
 
 /// Check the available Vulkan layers for basic validation support.
 static bool has_validation_layer_support() {
@@ -38,6 +42,33 @@ static bool has_validation_layer_support() {
     
     return false;
 }
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+        VkDebugUtilsMessageTypeFlagsEXT type,
+        const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+        void* user_data) {
+    switch (severity) {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
+        break;
+
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n'; 
+        break;
+
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
+        break;
+
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+        break;
+    }
+
+    return VK_FALSE;
+}
+#endif // USE_VALIDATION_LAYERS
 
 /// Check if a physical device supports the extensions required by the library.
 static bool has_extension_support(VkPhysicalDevice device) {
@@ -82,44 +113,27 @@ static std::optional<uint32_t> find_compute_queue_index(
     return index;
 }
 
-#ifdef USE_VALIDATION_LAYERS
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-        VkDebugUtilsMessageTypeFlagsEXT type,
-        const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-        void* user_data) {
-    switch (severity) {
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
-        break;
-
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n'; 
-        break;
-
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
-        break;
-
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-        break;
-    }
-
-    return VK_FALSE;
-}
-#endif // USE_VALIDATION_LAYERS
-
 VulkanContext::VulkanContext() {
     init_vulkan_instance();
     init_vulkan_physical_device();
     init_vulkan_logical_device();
+    init_vulkan_commands();
     init_vma_allocator();
 }
 
 VulkanContext::~VulkanContext() {
     if (m_device != nullptr)
         vkDeviceWaitIdle(m_device);
+
+    if (m_cmd != nullptr) {
+        vkFreeCommandBuffers(m_device, m_pool, 1, &m_cmd);
+        m_cmd = nullptr;
+    }
+
+    if (m_pool != nullptr) {
+        vkDestroyCommandPool(m_device, m_pool, nullptr);
+        m_pool = nullptr;
+    }
     
     if (m_allocator != nullptr) {
         vmaDestroyAllocator(m_allocator);
@@ -216,19 +230,17 @@ void VulkanContext::init_vulkan_physical_device() {
                 << ": missing required extensions.\n";
             continue;
         }
-        
+
+#ifdef USE_VERBOSE_LOGGING
+        std::cout << "using physical device: " << props.deviceName << '\n';
+#endif // USE_VERBOSE_LOGGING
+
         m_physical_device = device;
         break;
     }
 
-    if (!m_physical_device) {
-        throw rt_error("no suitable physical device found.");
-    } else {
-        VkPhysicalDeviceProperties props;
-        vkGetPhysicalDeviceProperties(m_physical_device, &props);
-
-        std::cout << "Using physical device: " << props.deviceName << '\n';
-    }
+    if (!m_physical_device)
+        throw rt_error("no suitable physical device found.");   
 }
 
 void VulkanContext::init_vulkan_logical_device() {
@@ -276,6 +288,22 @@ void VulkanContext::init_vulkan_logical_device() {
     // Get the compute queue we asked for.
     vkGetDeviceQueue(m_device, *compute_index, 0, &m_queue);
     m_qfamily = *compute_index;
+}
+
+void VulkanContext::init_vulkan_commands() {
+    VkCommandPoolCreateInfo pool_info {};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    VK_CHECK(vkCreateCommandPool(m_device, &pool_info, nullptr, &m_pool));
+
+    VkCommandBufferAllocateInfo alloc_info {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool = m_pool;
+    alloc_info.commandBufferCount = 1;
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+    VK_CHECK(vkAllocateCommandBuffers(m_device, &alloc_info, &m_cmd));
 }
 
 void VulkanContext::init_vma_allocator() {

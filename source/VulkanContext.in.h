@@ -40,6 +40,8 @@ class VulkanContext final {
     VkDevice m_device = nullptr;
     VkQueue m_queue = nullptr;
     uint32_t m_qfamily = 0;
+    VkCommandPool m_pool = nullptr;
+    VkCommandBuffer m_cmd = nullptr;
     VmaAllocator m_allocator = nullptr;
 
 #ifdef USE_VALIDATION_LAYERS
@@ -54,6 +56,9 @@ class VulkanContext final {
 
     /// Initialize the Vulkan logical device object for this context.
     void init_vulkan_logical_device();
+
+    /// Initialize the Vulkan command pool and command buffer for this context.
+    void init_vulkan_commands();
 
     /// Initialize the VMA allocator for this context.
     void init_vma_allocator();
@@ -87,6 +92,12 @@ public:
     /// context.
     uint32_t get_compute_queue_family() const { return m_qfamily; }
 
+    /// Returns the Vulkan command pool used in this context.
+    VkCommandPool get_command_pool() const { return m_pool; }
+
+    /// Returns the Vulkan command buffer used in this context.
+    VkCommandBuffer get_command_buffer() const { return m_cmd; }
+    
     /// Returns the VMA allocator used in this context.
     VmaAllocator get_allocator() const { return m_allocator; }
 };
