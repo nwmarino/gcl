@@ -1,0 +1,24 @@
+#ifndef GCL_CONTEXT_H_
+#define GCL_CONTEXT_H_
+
+#include <memory>
+
+namespace gcl {
+
+class VulkanContext;
+
+class GCLContext {
+    std::unique_ptr<VulkanContext> m_context;
+
+public:
+    GCLContext();
+
+    GCLContext(const GCLContext&) = delete;
+    GCLContext& operator = (const GCLContext&) = delete;
+
+    ~GCLContext();
+};
+
+} // namespace gcl
+
+#endif // GCL_CONTEXT_H_

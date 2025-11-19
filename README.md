@@ -1,6 +1,4 @@
-# Graphics Compute Library
+# Graphics-compute library
 
-**gcl** is a library that lets any GPU supporting Vulkan easily run general 
-purpose code by way of compute shaders. It aims to simplify the process
-of initializing buffers and giving data to shaders by providing abstractions
-and API functions.
+gcl is a collection of Vulkan abstractions and math kernels that use compute 
+shaders to run on the GPU to optimize parallel performance.
