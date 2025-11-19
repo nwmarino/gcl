@@ -15,7 +15,7 @@
 
 using rt_error = std::runtime_error;
 
-#ifndef NDEBUG
+#ifdef NDEBUG
     #define USE_VALIDATION_LAYERS
 #endif
 

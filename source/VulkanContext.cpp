@@ -11,10 +11,17 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <set>
 #include <optional>
 #include <vector>
 
 using namespace gcl;
+
+std::vector<const char*> EXTENSIONS = {
+#ifdef USE_VALIDATION_LAYERS
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif // USE_VALIDATION_LAYERS
+};
 
 /// Check the available Vulkan layers for basic validation support.
 static bool has_validation_layer_support() {
@@ -30,6 +37,24 @@ static bool has_validation_layer_support() {
     }
     
     return false;
+}
+
+/// Check if a physical device supports the extensions required by the library.
+static bool has_extension_support(VkPhysicalDevice device) {
+    uint32_t num_extensions;
+    vkEnumerateDeviceExtensionProperties(
+        device, nullptr, &num_extensions, nullptr);
+
+    std::vector<VkExtensionProperties> available(num_extensions);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &num_extensions, 
+        available.data());
+    
+    std::set<std::string> required(EXTENSIONS.begin(), EXTENSIONS.end());
+
+    for (const auto& extension : available)
+        required.erase(extension.extensionName);
+
+    return required.empty();
 }
 
 /// Finds and returns the index of a queue family that supports compute.
@@ -66,15 +91,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     switch (severity) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage;
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
         break;
 
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage;
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n'; 
         break;
 
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-        std::cerr << "(Vulkan) " << callback_data->pMessage;
+        std::cerr << "(Vulkan) " << callback_data->pMessage << '\n';
         break;
 
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
@@ -133,6 +158,9 @@ void VulkanContext::init_vulkan_instance() {
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app_info;
 
+    create_info.enabledExtensionCount = EXTENSIONS.size();
+    create_info.ppEnabledExtensionNames = EXTENSIONS.data();
+
 #ifdef USE_VALIDATION_LAYERS
     if (!has_validation_layer_support())
         throw rt_error("validation layers requested, but unavailable.");
@@ -183,11 +211,23 @@ void VulkanContext::init_vulkan_physical_device() {
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(device, &props);
 
-        // implement some restrictions here on whether a device is suitable.
+        if (!has_extension_support(device)) {
+            std::cout << "Skipping device " << props.deviceName 
+                << ": missing required extensions.\n";
+            continue;
+        }
         
-        // for now, choose first device available.
         m_physical_device = device;
         break;
+    }
+
+    if (!m_physical_device) {
+        throw rt_error("no suitable physical device found.");
+    } else {
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(m_physical_device, &props);
+
+        std::cout << "Using physical device: " << props.deviceName << '\n';
     }
 }
 
