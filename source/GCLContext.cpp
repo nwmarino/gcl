@@ -3,11 +3,8 @@
 //   All rights reserved.
 //
 
-#include "GCLContext.h"
+#include "../include/GCLContext.h"
 #include "VulkanContext.in.h"
-
-#define VMA_IMPLEMENTATION
-#include "../vendor/vma.h"
 
 #include <memory>
 
@@ -19,4 +16,12 @@ GCLContext::GCLContext() {
 
 GCLContext::~GCLContext() {
     
+}
+
+GCLContext::operator VmaAllocator() const {
+    return m_context->get_allocator();
+}
+
+VmaAllocator GCLContext::get_allocator() const {
+    return m_context->get_allocator();
 }

@@ -5,27 +5,16 @@
 
 #include "VulkanContext.in.h"
 
-#include <vulkan/vk_enum_string_helper.h>
+#define VMA_IMPLEMENTATION
+#include "../vendor/vma.h"
 
 #include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <stdexcept>
 #include <optional>
 #include <vector>
 
-using rt_error = std::runtime_error;
-
 using namespace gcl;
-
-#define VK_CHECK(x)                                                        \
-    do {                                                                   \
-        VkResult e = x;                                                    \
-        if (e) {                                                           \
-            throw rt_error("(Vulkan) " + std::string(string_VkResult(e))); \
-            abort();                                                       \
-        }                                                                  \
-    } while (0)
 
 /// Check the available Vulkan layers for basic validation support.
 static bool has_validation_layer_support() {
@@ -100,19 +89,35 @@ VulkanContext::VulkanContext() {
     init_vulkan_instance();
     init_vulkan_physical_device();
     init_vulkan_logical_device();
+    init_vma_allocator();
 }
 
 VulkanContext::~VulkanContext() {
     if (m_device != nullptr)
         vkDeviceWaitIdle(m_device);
+    
+    if (m_allocator != nullptr) {
+        vmaDestroyAllocator(m_allocator);
+        m_allocator = nullptr;
+    }
 
-    vkDestroyDevice(m_device, nullptr);
+    if (m_device != nullptr) {
+        vkDestroyDevice(m_device, nullptr);
+        m_device = nullptr;
+    }
 
 #ifdef USE_VALIDATION_LAYERS
-    vkDestroyDebugUtilsMessengerEXT(m_instance, m_msger, nullptr);
+    auto destroy_fn = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>( 
+        vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
+
+    if (destroy_fn) 
+        destroy_fn(m_instance, m_msger, nullptr);
 #endif // USE_VALIDATION_LAYERS
 
-    vkDestroyInstance(m_instance, nullptr);
+    if (m_instance != nullptr) {
+        vkDestroyInstance(m_instance, nullptr);
+        m_instance = nullptr;
+    }
 }
 
 void VulkanContext::init_vulkan_instance() {
@@ -156,8 +161,11 @@ void VulkanContext::init_vulkan_instance() {
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &m_instance));
 
 #ifdef USE_VALIDATION_LAYERS
-    VK_CHECK(vkCreateDebugUtilsMessengerEXT(
-        m_instance, &msger_info, nullptr, &m_msger));
+    auto create_fn = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+        vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
+
+    if (create_fn) 
+        create_fn(m_instance, &msger_info, nullptr, &m_msger);
 #endif // USE_VALIDATION_LAYERS
 }
 
@@ -228,4 +236,19 @@ void VulkanContext::init_vulkan_logical_device() {
     // Get the compute queue we asked for.
     vkGetDeviceQueue(m_device, *compute_index, 0, &m_queue);
     m_qfamily = *compute_index;
+}
+
+void VulkanContext::init_vma_allocator() {
+    VmaAllocatorCreateInfo info {};
+    info.physicalDevice = m_physical_device;
+    info.device = m_device;
+    info.instance = m_instance;
+    info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
+    VmaVulkanFunctions funcs {};
+    funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    info.pVulkanFunctions = &funcs;
+
+    VK_CHECK(vmaCreateAllocator(&info, &m_allocator));
 }

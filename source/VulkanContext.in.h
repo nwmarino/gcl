@@ -6,11 +6,27 @@
 #ifndef GCL_VULKAN_CONTEXT_INTERNAL_H_
 #define GCL_VULKAN_CONTEXT_INTERNAL_H_
 
+#include "../vendor/vma.h"
+
 #include <vulkan/vulkan.h>
+#include <vulkan/vk_enum_string_helper.h>
+
+#include <stdexcept>
+
+using rt_error = std::runtime_error;
 
 #ifndef NDEBUG
     #define USE_VALIDATION_LAYERS
 #endif
+
+#define VK_CHECK(x)                                                        \
+    do {                                                                   \
+        VkResult e = x;                                                    \
+        if (e) {                                                           \
+            throw rt_error("(Vulkan) " + std::string(string_VkResult(e))); \
+            abort();                                                       \
+        }                                                                  \
+    } while (0)
 
 namespace gcl {
 
@@ -24,6 +40,7 @@ class VulkanContext final {
     VkDevice m_device = nullptr;
     VkQueue m_queue = nullptr;
     uint32_t m_qfamily = 0;
+    VmaAllocator m_allocator = nullptr;
 
 #ifdef USE_VALIDATION_LAYERS
     VkDebugUtilsMessengerEXT m_msger = nullptr;
@@ -38,6 +55,9 @@ class VulkanContext final {
     /// Initialize the Vulkan logical device object for this context.
     void init_vulkan_logical_device();
 
+    /// Initialize the VMA allocator for this context.
+    void init_vma_allocator();
+
 public:
     VulkanContext();
 
@@ -49,6 +69,7 @@ public:
     operator VkInstance() const { return m_instance; }
     operator VkDevice() const { return m_device; }
     operator VkPhysicalDevice() const { return m_physical_device; }
+    operator VmaAllocator() const { return m_allocator; }
 
     /// Returns the Vulkan instance used in this context.
     VkInstance get_instance() const { return m_instance; }
@@ -65,6 +86,9 @@ public:
     /// Returns the queue family index for the compute queue used in this 
     /// context.
     uint32_t get_compute_queue_family() const { return m_qfamily; }
+
+    /// Returns the VMA allocator used in this context.
+    VmaAllocator get_allocator() const { return m_allocator; }
 };
 
 } // namespace gcl

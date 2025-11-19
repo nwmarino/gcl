@@ -6,13 +6,15 @@
 #ifndef GCL_CONTEXT_H_
 #define GCL_CONTEXT_H_
 
+#include "../vendor/vma.h"
+
 #include <memory>
 
 namespace gcl {
 
 class VulkanContext;
 
-class GCLContext {
+class GCLContext {;
     std::unique_ptr<VulkanContext> m_context;
 
 public:
@@ -22,6 +24,10 @@ public:
     GCLContext& operator = (const GCLContext&) = delete;
 
     ~GCLContext();
+
+    operator VmaAllocator() const;
+
+    VmaAllocator get_allocator() const;
 };
 
 } // namespace gcl
