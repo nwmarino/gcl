@@ -1,3 +1,8 @@
+//
+//   Copyright (c) 2025 Nicholas Marino
+//   All rights reserved.
+//
+
 #ifndef GCL_CONTEXT_H_
 #define GCL_CONTEXT_H_
 

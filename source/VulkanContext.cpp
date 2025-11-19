@@ -35,13 +35,15 @@ static bool has_validation_layer_support() {
     std::vector<VkLayerProperties> layers(num_layers);
     vkEnumerateInstanceLayerProperties(&num_layers, layers.data());
 
-    for (const auto& props : layers)
+    for (const auto& props : layers) {
         if (0 == std::strcmp(props.layerName, "VK_LAYER_KHRONOS_validation"))
             return true;
+    }
     
     return false;
 }
 
+/// Finds and returns the index of a queue family that supports compute.
 static std::optional<uint32_t> find_compute_queue_index(
         VkPhysicalDevice device) {
     uint32_t num_families;
@@ -185,7 +187,7 @@ void VulkanContext::init_vulkan_logical_device() {
     std::optional<uint32_t> compute_index = 
         find_compute_queue_index(m_physical_device);
 
-    if (!compute_index)
+    if (!compute_index.has_value())
         throw rt_error("physical device not support a compute queue.");
 
     float queue_prio = 1.f;
@@ -196,6 +198,7 @@ void VulkanContext::init_vulkan_logical_device() {
     queue_info.pQueuePriorities = &queue_prio;
     
     VkPhysicalDeviceFeatures core {};
+    // no core features needed.
     
     VkPhysicalDeviceVulkan12Features v12 {};
     v12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -204,6 +207,7 @@ void VulkanContext::init_vulkan_logical_device() {
 
     VkPhysicalDeviceVulkan13Features v13 {};
     v13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    // no 1.3 features needed.
     
     VkPhysicalDeviceFeatures2 feats {};
     feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -221,6 +225,7 @@ void VulkanContext::init_vulkan_logical_device() {
     VK_CHECK(vkCreateDevice(
         m_physical_device, &device_info, nullptr, &m_device));
 
+    // Get the compute queue we asked for.
     vkGetDeviceQueue(m_device, *compute_index, 0, &m_queue);
     m_qfamily = *compute_index;
 }

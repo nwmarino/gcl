@@ -7,7 +7,6 @@
 #define GCL_VULKAN_CONTEXT_H_
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #ifndef NDEBUG
     #define USE_VALIDATION_LAYERS
@@ -16,7 +15,7 @@
 namespace gcl {
 
 /// A layer over Vulkan-related objects to provide compute shaders and buffers
-/// on the GPU.
+/// on a graphics card.
 class VulkanContext final {
     friend class GCLContext;
 
