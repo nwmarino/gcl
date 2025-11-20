@@ -1,5 +1,5 @@
 //
-//   Copyright (c) 2025 Nicholas Marino
+//   Copyright (c) 2025 Nick Marino
 //   All rights reserved.
 //
 
@@ -7,15 +7,15 @@
 
 layout(local_size_x = 64) in;
 
-layout(binding = 0) buffer BufferAlpha {
+layout(set = 0, binding = 0) readonly buffer BufferAlpha {
     float a[];
 };
 
-layout(binding = 1) buffer BufferBeta {
+layout(set = 0, binding = 1) readonly buffer BufferBeta {
     float b[];
 };
 
-layout(binding = 2) buffer BufferRes {
+layout(set = 0, binding = 2) buffer BufferRes {
     float res[];
 };
 

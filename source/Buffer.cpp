@@ -1,10 +1,11 @@
 //
-//   Copyright (c) 2025 Nicholas Marino
+//   Copyright (c) 2025 Nick Marino
 //   All rights reserved.
 //
 
 #include "../include/Buffer.h"
 #include "VulkanContext.in.h"
+#include <vulkan/vulkan_core.h>
 
 using namespace gcl;
 
@@ -42,4 +43,12 @@ void Buffer::map(void** out) const {
 
 void Buffer::unmap() const {
     vmaUnmapMemory(m_context, m_alloc);
+}
+
+void Buffer::flush() const {
+    vmaFlushAllocation(m_context, m_alloc, 0, VK_WHOLE_SIZE);
+}
+
+void Buffer::invalidate() const {
+    vmaInvalidateAllocation(m_context, m_alloc, 0, VK_WHOLE_SIZE);
 }

@@ -1,5 +1,5 @@
 //
-//   Copyright (c) 2025 Nicholas Marino
+//   Copyright (c) 2025 Nick Marino
 //   All rights reserved.
 //
 
@@ -28,12 +28,18 @@ public:
 
     ~Buffer();
 
+    operator VkBuffer() const { return m_buf; }
+
     void map(void** out) const;
 
     void unmap() const;
 
     /// Returns the size of this buffer in bytes.
     uint64_t size() const { return static_cast<uint64_t>(m_size); }
+
+    void flush() const;
+
+    void invalidate() const;
 };
 
 } // namespace gcl

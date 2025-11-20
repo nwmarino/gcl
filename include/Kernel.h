@@ -1,5 +1,5 @@
 //
-//   Copyright (c) 2025 Nicholas Marino
+//   Copyright (c) 2025 Nick Marino
 //   All rights reserved.
 //
 
@@ -9,9 +9,9 @@
 #include "Buffer.h"
 #include "GCLContext.h"
 
-#include <vulkan/vulkan.h>
-
 #include <string>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace gcl {
 
@@ -21,9 +21,17 @@ class Kernel final {
     VkPipelineLayout m_layout = nullptr;
     VkPipeline m_pipeline = nullptr;
 
+    VkDescriptorSetLayout m_desc_layout = nullptr;
+    VkDescriptorPool m_desc_pool = nullptr;
+    VkDescriptorSet m_desc_set = nullptr;
+
+    uint32_t m_local_size_x = 1;
+
     void init_vulkan_compute_shader(const std::string& compute);
 
     void init_vulkan_compute_pipeline();
+
+    void reflect_descriptors(const std::vector<char>& spv);
 
 public:
     Kernel(GCLContext& context, const std::string& compute);

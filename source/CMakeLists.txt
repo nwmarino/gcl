@@ -12,6 +12,7 @@ add_library(gcl
     GCLContext.cpp
     Kernel.cpp
     VulkanContext.cpp
+    ../vendor/spirv_reflect.cpp
 )
 
 target_include_directories(gcl PUBLIC
@@ -24,5 +25,7 @@ target_link_libraries(gcl PRIVATE
     GTest::Main
     Vulkan::Vulkan
 )
+
+target_compile_definitions(gcl PUBLIC SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
 
 target_compile_features(gcl PUBLIC cxx_std_20)

@@ -1,12 +1,17 @@
 //
-//   Copyright (c) 2025 Nicholas Marino
+//   Copyright (c) 2025 Nick Marino
 //   All rights reserved.
 //
 
 #include "../include/Kernel.h"
 #include "VulkanContext.in.h"
 
+#include "../vendor/spirv_reflect.h"
+
+#include <algorithm>
+#include <cstdint>
 #include <fstream>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -37,6 +42,16 @@ Kernel::Kernel(GCLContext& context, const std::string& compute)
 }
 
 Kernel::~Kernel() {
+    if (m_desc_pool != nullptr) {
+        vkDestroyDescriptorPool(m_context, m_desc_pool, nullptr);
+        m_desc_pool = nullptr;
+    }
+
+    if (m_desc_layout != nullptr) {
+        vkDestroyDescriptorSetLayout(m_context, m_desc_layout, nullptr);
+        m_desc_layout = nullptr;
+    }
+
     if (m_pipeline != nullptr) {
         vkDestroyPipeline(m_context, m_pipeline, nullptr);
         m_pipeline = nullptr;
@@ -54,12 +69,14 @@ Kernel::~Kernel() {
 }
 
 void Kernel::init_vulkan_compute_shader(const std::string& compute) {
-    std::vector<char> code = read_file(compute);
+    std::vector<char> spv = read_file(compute);
+
+    reflect_descriptors(spv);
 
     VkShaderModuleCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    info.codeSize = code.size();
-    info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    info.codeSize = spv.size();
+    info.pCode = reinterpret_cast<const uint32_t*>(spv.data());
 
     VK_CHECK(vkCreateShaderModule(m_context, &info, nullptr, &m_compute));
 }
@@ -67,6 +84,11 @@ void Kernel::init_vulkan_compute_shader(const std::string& compute) {
 void Kernel::init_vulkan_compute_pipeline() {
     VkPipelineLayoutCreateInfo layout_info {};
     layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+    if (m_desc_layout != nullptr) {
+        layout_info.setLayoutCount = 1;
+        layout_info.pSetLayouts = &m_desc_layout;
+    }
 
     VK_CHECK(vkCreatePipelineLayout(
         m_context, &layout_info, nullptr, &m_layout));
@@ -86,6 +108,98 @@ void Kernel::init_vulkan_compute_pipeline() {
         m_context, nullptr, 1, &pipeline_info, nullptr, &m_pipeline));
 }
 
+void Kernel::reflect_descriptors(const std::vector<char>& spv) {
+    SpvReflectShaderModule module {};
+    SpvReflectResult res = spvReflectCreateShaderModule(spv.size(), spv.data(), &module);
+    if (res != SPV_REFLECT_RESULT_SUCCESS)
+        throw rt_error("(SPIRV-Reflect) failed to make shader module for reflection.");
+
+    m_local_size_x = std::max(
+        static_cast<uint32_t>(1), module.entry_points[0].local_size.x);
+
+    uint32_t num_sets = 0;
+    res = spvReflectEnumerateDescriptorSets(&module, &num_sets, nullptr);
+    if (res != SPV_REFLECT_RESULT_SUCCESS) {
+        spvReflectDestroyShaderModule(&module);
+        throw rt_error("(SPIRV-Reflect) failed to list descriptor sets.");
+    }
+
+    std::vector<SpvReflectDescriptorSet*> sets(num_sets);
+    res = spvReflectEnumerateDescriptorSets(&module, &num_sets, sets.data());
+    if (res != SPV_REFLECT_RESULT_SUCCESS) {
+        spvReflectDestroyShaderModule(&module);
+        throw rt_error("(SPIRV-Reflect) failed to reflect descriptor sets.");
+    }
+
+    // TODO: Support more than one descriptor set.
+    SpvReflectDescriptorSet* set0 = nullptr;
+    for (auto* s : sets) {
+        if (s->set == 0) {
+            set0 = s;
+            break;
+        }
+    }
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    std::vector<VkDescriptorPoolSize> pool_sizes;
+
+    if (set0 != nullptr) {
+        bindings.reserve(set0->binding_count);
+        std::unordered_map<VkDescriptorType, uint32_t> type_counts = {};
+
+        for (uint32_t idx = 0; idx < set0->binding_count; ++idx) {
+            const SpvReflectDescriptorBinding* rb = set0->bindings[idx];
+
+            VkDescriptorSetLayoutBinding binding {};
+            binding.binding = rb->binding;
+            binding.descriptorType = 
+                static_cast<VkDescriptorType>(rb->descriptor_type);
+            binding.descriptorCount = rb->count;
+            binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+            bindings.push_back(binding);
+
+            type_counts[binding.descriptorType] += binding.descriptorCount;
+        }
+
+        pool_sizes.reserve(type_counts.size());
+        for (const auto& [type, count] : type_counts) {
+            VkDescriptorPoolSize size {};
+            size.type = type;
+            size.descriptorCount = count;
+            pool_sizes.push_back(size);
+        }
+
+        VkDescriptorSetLayoutCreateInfo layout_info {};
+        layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+        layout_info.pBindings = bindings.data();
+
+        VK_CHECK(vkCreateDescriptorSetLayout(
+            m_context, &layout_info, nullptr, &m_desc_layout));
+
+        VkDescriptorPoolCreateInfo pool_info {};
+        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pool_info.maxSets = 1;
+        pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+        pool_info.pPoolSizes = pool_sizes.data();
+
+        VK_CHECK(vkCreateDescriptorPool(
+            m_context, &pool_info, nullptr, &m_desc_pool));
+
+        VkDescriptorSetAllocateInfo alloc_info {};
+        alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc_info.descriptorPool = m_desc_pool;
+        alloc_info.descriptorSetCount = 1;
+        alloc_info.pSetLayouts = &m_desc_layout;
+
+        VK_CHECK(vkAllocateDescriptorSets(
+            m_context, &alloc_info, &m_desc_set));
+    }
+
+    spvReflectDestroyShaderModule(&module);
+}
+
 void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
     VkCommandBufferBeginInfo begin_info {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -97,24 +211,50 @@ void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
 
-    /*
-    vkCmdBindDescriptorSets(
-        cmd, 
-        VK_PIPELINE_BIND_POINT_COMPUTE, 
-        m_layout, 
-        0, 
-        1, 
-        nullptr, 
-        0, 
-        0);
-    */
+    if (m_desc_set != nullptr) {
+        vkCmdBindDescriptorSets(
+            cmd, 
+            VK_PIPELINE_BIND_POINT_COMPUTE, 
+            m_layout, 
+            0, 
+            1, 
+            &m_desc_set, 
+            0, 
+            nullptr);
+    }
 
-    vkCmdDispatch(cmd, (xgroups / 256) + 1, ygroups, zgroups);
+    uint32_t groups_x = static_cast<uint32_t>((
+        static_cast<int64_t>(xgroups) + (m_local_size_x - 1)) / m_local_size_x);
+
+    vkCmdDispatch(cmd, groups_x, ygroups, zgroups);
 
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
         throw rt_error("failed to record command buffer.");
+
+    VkSubmitInfo submit {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &cmd;
+
+    VkQueue q = m_context.m_context->get_compute_queue();
+    VK_CHECK(vkQueueSubmit(q, 1, &submit, nullptr));
+    VK_CHECK(vkQueueWaitIdle(q));
 }
 
 void Kernel::bind(uint32_t binding, Buffer& buf) {
-    
+    VkDescriptorBufferInfo info {};
+    info.buffer = buf;
+    info.offset = 0;
+    info.range = buf.size();
+
+    VkWriteDescriptorSet write {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = m_desc_set;
+    write.dstBinding = binding;
+    write.dstArrayElement = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write.pBufferInfo = &info;
+
+    vkUpdateDescriptorSets(m_context, 1, &write, 0, nullptr);
 }
