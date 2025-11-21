@@ -1,0 +1,48 @@
+//
+//   Copyright (c) 2025 Nick Marino
+//   All rights reserved.
+//
+
+#version 460
+
+layout(local_size_x = 128) in;
+
+layout(set = 0, binding = 0) readonly buffer BufferAlpha {
+    float a[];
+};
+
+layout(set = 0, binding = 1) readonly buffer BufferBeta {
+    float b[];
+};
+
+layout(set = 0, binding = 2) buffer BufferRes {
+    float r[];
+};
+
+float poly(float x, float y) {
+    float acc = 0.0;
+
+    acc = fma(x, y, acc);
+    acc = fma(x * x, 0.25, acc);
+    acc = fma(y * y, 0.125, acc);
+    acc = fma(x * y, 0.0625, acc);
+    acc = fma(x + y, 0.03125, acc);
+
+    for (uint i = 0; i < 8; ++i)
+        acc = acc * 0.985123 + 0.314159;
+
+    return acc;
+}
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+
+    float x = a[i];
+    float y = a[i];
+
+    if (int(i & 7) < 3) {
+        r[i] = poly(x, y);
+    } else {
+        r[i] = poly(x * 0.5, y * 1.5);
+    }
+}

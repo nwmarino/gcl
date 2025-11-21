@@ -3,5 +3,5 @@
 build/
 
 *.spv
-
-white
+*.o
+*.so

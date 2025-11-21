@@ -198,17 +198,20 @@ void Kernel::reflect_descriptors(const std::vector<char>& spv) {
     spvReflectDestroyShaderModule(&module);
 }
 
-void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
-    VkCommandBufferBeginInfo begin_info {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+void Kernel::dispatch(int32_t xelements, int32_t ygroups, int32_t zgroups) {
+    if (xelements == 0 || ygroups == 0 || zgroups == 0)
+        return;
+
+    uint32_t groups_x = (xelements + m_local_size_x - 1u) / m_local_size_x;
 
     VkCommandBuffer cmd = m_context.get_command_buffer();
+    VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
-    if (vkBeginCommandBuffer(cmd, &begin_info) != VK_SUCCESS)
-        throw rt_error("failed to begin recording command buffer.");
+    VkCommandBufferBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
-
     if (m_desc_set != nullptr) {
         vkCmdBindDescriptorSets(
             cmd, 
@@ -221,38 +224,17 @@ void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
             nullptr);
     }
 
-    uint32_t groups_x = static_cast<uint32_t>((
-        static_cast<int64_t>(xgroups) + (m_local_size_x - 1)) / m_local_size_x);
-
     vkCmdDispatch(cmd, groups_x, ygroups, zgroups);
-
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
-        throw rt_error("failed to record command buffer.");
+    VK_CHECK(vkEndCommandBuffer(cmd));
 
     VkSubmitInfo submit {};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    VkQueue q = m_context.get_compute_queue();
-    VK_CHECK(vkQueueSubmit(q, 1, &submit, nullptr));
-    VK_CHECK(vkQueueWaitIdle(q));
-}
+    VkFence fence = m_context.get_fence();
 
-void Kernel::bind(uint32_t binding, Buffer& buf) {
-    VkDescriptorBufferInfo info {};
-    info.buffer = buf;
-    info.offset = 0;
-    info.range = buf.size();
-
-    VkWriteDescriptorSet write {};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = m_desc_set;
-    write.dstBinding = binding;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    write.pBufferInfo = &info;
-
-    vkUpdateDescriptorSets(m_context, 1, &write, 0, nullptr);
+    VK_CHECK(vkResetFences(m_context, 1, &fence));
+    VK_CHECK(vkQueueSubmit(m_context.get_compute_queue(), 1, &submit, fence));
+    VK_CHECK(vkWaitForFences(m_context, 1, &fence, VK_TRUE, UINT64_MAX));
 }

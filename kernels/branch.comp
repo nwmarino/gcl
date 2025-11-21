@@ -1,0 +1,36 @@
+//
+//   Copyright (c) 2025 Nick Marino
+//   All rights reserved.
+//
+
+#version 460
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) readonly buffer BufferAlpha {
+    float a[];
+};
+
+layout(set = 0, binding = 1) readonly buffer BufferBeta {
+    float b[];
+};
+
+layout(set = 0, binding = 2) buffer BufferRes {
+    float r[];
+};
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+
+    float av = a[i];
+    float bv = b[i];
+
+    if (av > 0.5) {
+        float t = sqrt(av) * bv;
+        r[i] = t + 1.0;
+    } else if (av > 0.25) {
+        r[i] = av * bv - 0.5;
+    } else {
+        r[i] = (av + 0.001) * (bv - 0.001);
+    }
+}

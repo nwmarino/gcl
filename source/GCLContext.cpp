@@ -117,6 +117,7 @@ GCLContext::GCLContext() {
     init_vulkan_instance();
     init_vulkan_physical_device();
     init_vulkan_logical_device();
+    init_vulkan_sync_structures();
     init_vulkan_commands();
     init_vma_allocator();
 }
@@ -133,6 +134,11 @@ GCLContext::~GCLContext() {
     if (m_pool != nullptr) {
         vkDestroyCommandPool(m_device, m_pool, nullptr);
         m_pool = nullptr;
+    }
+
+    if (m_fence != nullptr) {
+        vkDestroyFence(m_device, m_fence, nullptr);
+        m_fence = nullptr;
     }
     
     if (m_allocator != nullptr) {
@@ -288,6 +294,13 @@ void GCLContext::init_vulkan_logical_device() {
     // Get the compute queue we asked for.
     vkGetDeviceQueue(m_device, *compute_index, 0, &m_queue);
     m_qfamily = *compute_index;
+}
+
+void GCLContext::init_vulkan_sync_structures() {
+    VkFenceCreateInfo fence_info {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    
+    VK_CHECK(vkCreateFence(m_device, &fence_info, nullptr, &m_fence));
 }
 
 void GCLContext::init_vulkan_commands() {

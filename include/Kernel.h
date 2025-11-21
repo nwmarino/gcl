@@ -40,9 +40,24 @@ public:
 
     ~Kernel();
 
-    void dispatch(int32_t xgroups, int32_t ygroups = 1, int32_t zgroups = 1);
+    void dispatch(int32_t xelements, int32_t ygroups = 1, int32_t zgroups = 1);
 
-    void bind(uint32_t binding, Buffer& buf);
+    template<typename T>
+    void bind(uint32_t binding, Buffer<T>& buf) {
+        VkDescriptorBufferInfo info {};
+        info.buffer = buf;
+        info.range = buf.size();
+
+        VkWriteDescriptorSet write {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        write.descriptorCount = 1;
+        write.dstBinding = binding;
+        write.dstSet = m_desc_set;
+        write.pBufferInfo = &info;
+
+        vkUpdateDescriptorSets(m_context, 1, &write, 0, nullptr);
+    }
 };
 
 } // namespace gcl

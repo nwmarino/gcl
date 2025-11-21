@@ -12,6 +12,7 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 using rt_error = std::runtime_error;
 
@@ -31,7 +32,6 @@ using rt_error = std::runtime_error;
 namespace gcl {
 
 class GCLContext {
-    friend class Buffer;
     friend class Kernel;
 
     VkInstance m_instance = nullptr;
@@ -39,6 +39,7 @@ class GCLContext {
     VkDevice m_device = nullptr;
     VkQueue m_queue = nullptr;
     uint32_t m_qfamily = 0;
+    VkFence m_fence = nullptr;
     VkCommandPool m_pool = nullptr;
     VkCommandBuffer m_cmd = nullptr;
     VmaAllocator m_allocator = nullptr;
@@ -55,6 +56,9 @@ class GCLContext {
 
     /// Initialize the Vulkan logical device object for this context.
     void init_vulkan_logical_device();
+
+    /// Initialize the Vulkan sync structures for this context.
+    void init_vulkan_sync_structures();
 
     /// Initialize the Vulkan command pool and command buffer for this context.
     void init_vulkan_commands();
@@ -90,6 +94,9 @@ public:
     /// Returns the queue family index for the compute queue used in this 
     /// context.
     uint32_t get_compute_queue_family() const { return m_qfamily; }
+
+    /// Returns a Vulkan fence used for kernel dispatch synchronization.
+    VkFence get_fence() const { return m_fence; }
 
     /// Returns the Vulkan command pool used in this context.
     VkCommandPool get_command_pool() const { return m_pool; }
