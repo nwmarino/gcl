@@ -11,7 +11,6 @@ add_library(gcl
     Buffer.cpp
     GCLContext.cpp
     Kernel.cpp
-    VulkanContext.cpp
     ../vendor/spirv_reflect.cpp
 )
 

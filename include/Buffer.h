@@ -8,8 +8,6 @@
 
 #include "GCLContext.h"
 
-#include <vulkan/vulkan.h>
-
 #include <cstdint>
 
 namespace gcl {

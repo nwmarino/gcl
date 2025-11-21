@@ -4,8 +4,6 @@
 //
 
 #include "../include/Buffer.h"
-#include "VulkanContext.in.h"
-#include <vulkan/vulkan_core.h>
 
 using namespace gcl;
 

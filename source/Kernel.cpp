@@ -4,7 +4,6 @@
 //
 
 #include "../include/Kernel.h"
-#include "VulkanContext.in.h"
 
 #include "../vendor/spirv_reflect.h"
 
@@ -13,7 +12,6 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 using namespace gcl;
 
@@ -204,7 +202,7 @@ void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
     VkCommandBufferBeginInfo begin_info {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    VkCommandBuffer cmd = m_context.m_context->get_command_buffer();
+    VkCommandBuffer cmd = m_context.get_command_buffer();
 
     if (vkBeginCommandBuffer(cmd, &begin_info) != VK_SUCCESS)
         throw rt_error("failed to begin recording command buffer.");
@@ -236,7 +234,7 @@ void Kernel::dispatch(int32_t xgroups, int32_t ygroups, int32_t zgroups) {
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    VkQueue q = m_context.m_context->get_compute_queue();
+    VkQueue q = m_context.get_compute_queue();
     VK_CHECK(vkQueueSubmit(q, 1, &submit, nullptr));
     VK_CHECK(vkQueueWaitIdle(q));
 }

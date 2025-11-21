@@ -52,7 +52,7 @@ int32_t main(int32_t argc, char* argv[]) {
     ma.dispatch(N);
 
     {
-        res.invalidate();
+        //res.invalidate();
 
         void* p = nullptr;
         res.map(&p);
