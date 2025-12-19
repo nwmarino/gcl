@@ -10,6 +10,6 @@ find_package(GTest REQUIRED)
 
 add_subdirectory(source)
 
-#if (GCL_COMPILE_EXAMPLES)
-add_subdirectory(examples)
-#endif()
+if (GCL_COMPILE_EXAMPLES)
+    add_subdirectory(examples)
+endif()

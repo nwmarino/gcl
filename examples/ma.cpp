@@ -1,6 +1,6 @@
 //
-//   Copyright (c) 2025 Nick Marino
-//   All rights reserved.
+// Copyright (c) 2025 Nick Marino
+// All rights reserved.
 //
 
 #include "../include/Buffer.h"
@@ -11,38 +11,38 @@
 #include <iostream>
 #include <vector>
 
-int32_t main() {
-    gcl::GCLContext context;
+int32_t main(int32_t argc, char** argv) {
+     if (argc != 2) {
+        std::cout << "usage: ./ma <N>" << std::endl;
+        return 1;
+    }
 
-    constexpr uint32_t N = 16;
+    gcl::GCLContext ctx;
+    const uint32_t N = std::stoul(argv[1]);
 
-    gcl::Buffer<float> alpha(context, N);
-    gcl::Buffer<float> beta(context, N);
-    gcl::Buffer<float> res(context, N);
+    gcl::Buffer<float> a(ctx, N);
+    gcl::Buffer<float> b(ctx, N);
+    gcl::Buffer<float> r(ctx, N);
 
-    std::vector<float> as(N);
+    std::vector<float> va(N), vb(N);
+    for (uint32_t i = 0; i < N; ++i) {
+        va[i] = float(i);
+        vb[i] = float(i) * 2.f;
+    }
+
+    a.send(va);
+    b.send(vb);
+
+    gcl::Kernel k(ctx, "kernels/ma.spv");
+    k.bind(0, a);
+    k.bind(1, b);
+    k.bind(2, r);
+
+    k.dispatch(N);
+
+    std::vector<float> out = r.fetch();
     for (uint32_t i = 0; i < N; ++i)
-        as[i] = float(i);
-
-    alpha.send(as);
-
-    std::vector<float> bs(N);
-    for (uint32_t i = 0; i < N; ++i)
-        bs[i] = float(i) * 2.f;
-
-    beta.send(bs);
-
-    gcl::Kernel ma = gcl::Kernel(context, "kernels/ma.spv");
-    ma.bind(0, alpha);
-    ma.bind(1, beta);
-    ma.bind(2, res);
-
-    ma.dispatch(N);
-
-    std::vector<float> result = res.fetch();
-
-    for (uint32_t i = 0; i < N; ++i)
-        std::cout << "r[" << i << "] = " << result[i] << '\n';
+        std::cout << "r[" << i << "] = " << out[i] << '\n';
 
     return 0;
 }

@@ -1,6 +1,6 @@
 //
-//   Copyright (c) 2025 Nick Marino
-//   All rights reserved.
+// Copyright (c) 2025 Nick Marino
+// All rights reserved.
 //
 
 #ifndef GCL_CONTEXT_H_
@@ -12,7 +12,6 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
 
 using rt_error = std::runtime_error;
 
@@ -69,10 +68,13 @@ class GCLContext {
 public:
     GCLContext();
 
-    GCLContext(const GCLContext&) = delete;
-    GCLContext& operator = (const GCLContext&) = delete;
-
     ~GCLContext();
+
+    GCLContext(const GCLContext&) = delete;
+    void operator=(const GCLContext&) = delete;
+
+    GCLContext(GCLContext&&) = delete;
+    void operator=(GCLContext&&) = delete;
 
     operator VkInstance() const { return m_instance; }
     operator VkDevice() const { return m_device; }

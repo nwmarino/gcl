@@ -1,6 +1,6 @@
 //
-//   Copyright (c) 2025 Nick Marino
-//   All rights reserved.
+// Copyright (c) 2025 Nick Marino
+// All rights reserved.
 //
 
 #include "../include/GCLContext.h"
@@ -15,7 +15,6 @@
 #include <vector>
 
 using namespace gcl;
-
 
 std::vector<const char*> EXTENSIONS = {
 #ifdef USE_VALIDATION_LAYERS

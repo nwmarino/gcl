@@ -1,6 +1,6 @@
 //
-//   Copyright (c) 2025 Nick Marino
-//   All rights reserved.
+// Copyright (c) 2025 Nick Marino
+// All rights reserved.
 //
 
 #ifndef GCL_BUFFER_H_
@@ -8,9 +8,10 @@
 
 #include "GCLContext.h"
 
+#include <vulkan/vulkan.h>
+
 #include <cstdint>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace gcl {
 
@@ -29,7 +30,6 @@ class Buffer final {
     VmaAllocation m_alloc;
 
 public:
-    /// Create a new buffer with the number of elements |N|.
     Buffer(GCLContext& context, uint64_t N) 
             : m_context(context), m_size(sizeof(T) * N) {
         VkBufferCreateInfo buf_info {};
@@ -44,15 +44,18 @@ public:
             m_context, &buf_info, &alloc_info, &m_buf, &m_alloc, nullptr));
     }
 
-    Buffer(const Buffer&) = delete;
-    Buffer& operator = (const Buffer&) = delete;
-
     ~Buffer() {
         vmaDestroyBuffer(m_context, m_buf, m_alloc);
 
         m_buf = nullptr;
         m_alloc = nullptr;
     }
+
+    Buffer(const Buffer&) = delete;
+    void operator=(const Buffer&) = delete;
+
+    Buffer(Buffer&&) = delete;
+    void operator=(Buffer&&) = delete;
 
     operator VkBuffer() const { return m_buf; }
 

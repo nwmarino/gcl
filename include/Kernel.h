@@ -1,6 +1,6 @@
 //
-//   Copyright (c) 2025 Nick Marino
-//   All rights reserved.
+// Copyright (c) 2025 Nick Marino
+// All rights reserved.
 //
 
 #ifndef GCL_KERNEL_H_
@@ -16,6 +16,7 @@ namespace gcl {
 
 class Kernel final {
     GCLContext& m_context;
+
     VkShaderModule m_compute = nullptr;
     VkPipelineLayout m_layout = nullptr;
     VkPipeline m_pipeline = nullptr;
@@ -35,10 +36,13 @@ class Kernel final {
 public:
     Kernel(GCLContext& context, const std::string& compute);
 
-    Kernel(const Kernel&) = delete;
-    Kernel& operator=(const Kernel&) = delete;
-
     ~Kernel();
+
+    Kernel(const Kernel&) = delete;
+    void operator=(const Kernel&) = delete;
+
+    Kernel(Kernel&&) = delete;
+    void operator=(Kernel&&) = delete;
 
     void dispatch(int32_t xelements, int32_t ygroups = 1, int32_t zgroups = 1);
 
